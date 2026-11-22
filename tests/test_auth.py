@@ -145,6 +145,36 @@ def test_account_page_works_during_forced_password_change():
     assert c.get("/api/zones").json()["detail"] == "password_change_required"
 
 
+def test_demo_login_buttons_only_on_this_machine(tmp_path, monkeypatch):
+    from api import demo_logins
+    name, gone = uid("s"), uid("s")
+    make_user(name, "student", home_block="Block_1")
+    make_user(gone, "student")
+    csv_path = tmp_path / "demo_credentials.csv"
+    csv_path.write_text("username,role,full_name,home_block,password,must_change\n"
+                        f"{name},student,Demo Student,Block_1,{USER_PASSWORD},no\n"
+                        f"{gone},student,Changed,,Old-Pass-1234,no\n"          # password no longer matches
+                        f"{uid('x')},faculty,Ghost,,Whatever-123,no\n", encoding="utf-8")   # account does not exist
+    monkeypatch.setattr(demo_logins, "credentials_file", lambda: str(csv_path))
+
+    monkeypatch.setenv("DEMO_LOGINS", "auto")       # TestClient's peer is "testclient", not a loopback address
+    assert 'class="demo-login' not in TestClient(app).get("/login").text
+    monkeypatch.setenv("DEMO_LOGINS", "on")
+    html = TestClient(app).get("/login").text
+    assert f'data-user="{name}"' in html and f'data-user="{gone}"' not in html and "Ghost" not in html
+    monkeypatch.setenv("DEMO_LOGINS", "off")
+    assert 'class="demo-login' not in TestClient(app).get("/login").text
+
+
+def test_demo_logins_auto_mode_rules():
+    from starlette.requests import Request
+    from api import demo_logins
+    req = lambda host, headers=(): Request({"type": "http", "client": (host, 1), "headers": list(headers)})
+    assert demo_logins._is_local(req("127.0.0.1")) and demo_logins._is_local(req("::1"))
+    assert not demo_logins._is_local(req("10.0.0.7"))
+    assert not demo_logins._is_local(req("127.0.0.1", [(b"x-forwarded-for", b"203.0.113.9")]))   # behind a proxy
+
+
 def test_password_policy():
     with pytest.raises(ValueError):
         auth.validate_password("abcdefgh", "x123", "student")         # no digit

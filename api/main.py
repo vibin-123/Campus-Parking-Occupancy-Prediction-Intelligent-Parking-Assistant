@@ -10,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from api import auth, calendar_store, model_monitor
+from api import auth, calendar_store, demo_logins, model_monitor
 from api.limiter import limiter
 from api.routes import router, get_store
 from api.auth_routes import router as auth_router
@@ -147,7 +147,8 @@ async def serve_login(request: Request, next: str = ""):
         target = "/account?first=1" if user["must_change_password"] else (safe_next(next) or auth.landing_page(user["role"]))
         return RedirectResponse(target, status_code=303)
     return templates.TemplateResponse(request=request, name="login.html",
-                                      context={"active_page": "login", "user": None, "next": safe_next(next)})
+                                      context={"active_page": "login", "user": None, "next": safe_next(next),
+                                               "demo_accounts": demo_logins.demo_accounts(request)})
 
 
 @app.get("/", response_class=HTMLResponse)

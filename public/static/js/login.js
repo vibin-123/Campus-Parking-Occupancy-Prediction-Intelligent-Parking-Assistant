@@ -21,6 +21,15 @@
         document.querySelector('#togglePw i').className = `fa-solid ${show ? 'fa-eye-slash' : 'fa-eye'} text-sm`;
     });
 
+    // Demo accounts (localhost only): fill the form and sign in with one click
+    document.querySelectorAll('.demo-login').forEach(b => b.addEventListener('click', () => {
+        document.getElementById('username').value = b.dataset.user;
+        pw.value = b.dataset.pass;
+        document.querySelectorAll('.demo-login').forEach(x => { x.disabled = true; });
+        form.requestSubmit();
+        setTimeout(() => document.querySelectorAll('.demo-login').forEach(x => { x.disabled = false; }), 1500);
+    }));
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         errBox.classList.add('hidden');
